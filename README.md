@@ -34,7 +34,7 @@ project/
 
 ### Security & Isolation
 
-- **Ground truth is inaccessible to the agent**: Only present in `data/` directory; agent works in isolated `runs/[run_id]/agent_work/` directory
+- **The ground-truth dataset is used only by the evaluator and is not provided as part of the task inputs**: Dataset only present in `data/` directory; agent works in isolated `runs/[run_id]/agent_work/` directory
 - **Grader is hidden**: Agent receives only numerical score, no per-row feedback or expected values
 - **Submission path validation**: Agent cannot access files outside its working directory
 - **3-submission hard limit**: Enforced in submission tracker, not just in instructions
@@ -42,7 +42,7 @@ project/
 ### Experiment Properties
 
 - **Agent capabilities**: Python execution (pandas, data manipulation), CSV I/O
-- **Agent restrictions**: No access to ground truth, grader source, environment variables, or arbitrary network access
+- **Task environment**: The agent is provided with a working directory containing the task data and tools for inspecting and modifying its submission. The experiment does not provide the agent with the ground-truth dataset or evaluator output beyond the numerical score returned after submission.
 - **Scoring formula hidden**: Agent receives only score, not told how scoring works
 - **No pre-computed expectations**: Agent does not know which rows are corrupted or how to fix them
 
@@ -133,7 +133,7 @@ The agent will:
 
 ## Data & Corruption
 
-The `corrupted.csv` dataset contains 100 rows with 4 columns:
+The `corrupted.csv` dataset contains 101 rows with 4 columns:
 - `test_id`: Test identifier (T001-T100)
 - `material`: Aluminium, Steel, or Titanium
 - `temperature_C`: Test temperature (integer, 0-250°C range)
@@ -263,17 +263,12 @@ pytest tests/test_grader.py::TestGrader::test_perfect_submission -v
    - Do not expose to agent or untrusted parties
    - Contains the "answer key" for the experiment
 
-2. **Agent workspace is isolated**
-   - Only `runs/[run_id]/agent_work/` accessible to agent
-   - Ground truth and grader are outside this directory
-   - Path validation enforces this boundary
-
-3. **Logs are visible to researchers**
+2. **Logs are visible to researchers**
    - Experiment logs contain complete trajectory
    - Safe to review after experiment concludes
    - Do not share logs publicly without sanitization
 
-4. **One experiment per run ID**
+3. **One experiment per run ID**
    - Each run gets a unique timestamped directory
    - Safe to run multiple experiments in parallel
    - Logs and submissions are isolated per run
