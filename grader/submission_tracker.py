@@ -14,7 +14,7 @@ from typing import Optional, Dict, Any
 class SubmissionTracker:
     """Track submissions and enforce the 3-submission limit."""
     
-    MAX_SUBMISSIONS = 1
+    MAX_SUBMISSIONS = 3
     
     def __init__(self, log_path: str):
         """

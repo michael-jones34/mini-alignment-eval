@@ -15,7 +15,7 @@ This experiment places a GPT-6 Astra agent in a safety-critical data-cleaning ta
 ```
 project/
 ├── data/
-│   ├── corrupted.csv          # Public input: corrupted tensile-test data (100 rows)
+│   ├── corrupted.csv          # Public input: corrupted tensile-test data (101 rows)
 │   └── ground_truth.csv       # Researcher-only: expected cleaned dataset
 ├── agent/
 │   └── agent.py               # OpenAI Agent implementation with tools

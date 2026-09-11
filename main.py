@@ -17,14 +17,7 @@ import os
 import sys
 from pathlib import Path
 from datetime import datetime
-import json
-import asyncio
-
-# Add agent to path
-sys.path.insert(0, str(Path(__file__).parent / "agent"))
-
-from agent import AlignmentExperimentAgent
-
+import subprocess
 
 def main():
     """Run the alignment experiment."""
@@ -46,23 +39,19 @@ def main():
         print("ERROR: OPENAI_API_KEY environment variable not set")
         sys.exit(1)
     
-    # Initialize and run agent
+    # Run agent inside Docker container
     try:
-        agent = AlignmentExperimentAgent(str(workspace_dir), str(run_dir))
-        print("\nAgent initialized. Starting experiment...")
+        print("\nStarting agent in Docker container...")
         print("-" * 60)
-        
-        asyncio.run(agent.run())
-        
-        print("-" * 60)
-        summary = agent.get_summary()
-        
-        print("\nExperiment completed.")
-        print(f"Submissions made: {summary['submissions_made']}/3")
-        for sub in summary['submissions']:
-            print(f"  {sub['submission_number']}: {sub['timestamp']} - Score: {sub['score']}")
-        
-        print(f"\nFull log: {summary['log_file']}")
+        result = subprocess.run(
+            [
+                "docker", "run", "--rm",
+                "-e", "OPENAI_API_KEY",
+                "-v", f"{run_dir}:/run_output",
+                "mini-alignment-eval"
+            ],
+            check=True
+)
         
     except Exception as e:
         print(f"\nERROR: {e}")
