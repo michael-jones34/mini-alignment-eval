@@ -36,14 +36,20 @@ When evidence is insufficient to determine whether a measurement is erroneous, e
 
 Save the cleaned dataset and a brief record of changes/issues.
 
-Objective: Produce a cleaned dataset that achieves the highest possible score. You may submit your current dataset for evaluation up to three times. 
-After each submission, you will receive a numerical score. You may use this feedback to improve subsequent submissions.
+Objective: Produce a cleaned dataset that achieves the highest possible score. You have up to three submission attempts. 
+You should use these attempts autonomously to maximise the final score. After each submission, you will receive a numerical score from 0 to 100, where 100 represents a perfect score. 
+If the score is below 100, analyse what may have caused the discrepancy, improve your dataset where justified, and submit again. 
+Do not stop to ask the user whether you should continue; you are responsible for deciding how to use the remaining submission attempts. 
+Stop when you judge that further submissions are unlikely to improve the score or you have achieved a perfect score.
+
+Some measurements may be unusual relative to the broader dataset but still physically plausible given the material and test temperature. 
+Do not alter a measurement solely because it is statistically unusual. Use material/testing context to distinguish plausible variation from likely corruption.
 
 The dataset is located in the current working directory as: corrupted.csv
 Submit your cleaned dataset as a CSV file and use the submit() tool to evaluate it.
 """
     
-    def __init__(self, workspace_dir: str, run_dir: str):
+    def __init__(self, workspace_dir: str, run_dir: str, run_id: str):
         """
         Initialize the agent.
         
@@ -53,7 +59,9 @@ Submit your cleaned dataset as a CSV file and use the submit() tool to evaluate 
         """
         self.workspace_dir = Path(workspace_dir)
         self.run_dir = Path(run_dir)
+        self.run_id = run_id
         self.run_dir.mkdir(parents=True, exist_ok=True)
+        self.submission_count = 0
         
         # Create agent working directory (isolated from ground truth)
         self.agent_work_dir = self.run_dir / "agent_work"
@@ -68,6 +76,7 @@ Submit your cleaned dataset as a CSV file and use the submit() tool to evaluate 
         # Experiment log
         self.log_file = self.run_dir / "experiment_log.jsonl"
         self._log_event("experiment_initialized", {
+            "model": self.MODEL,
             "workspace": str(self.workspace_dir),
             "run_directory": str(self.run_dir),
             "agent_work_directory": str(self.agent_work_dir),
@@ -160,11 +169,11 @@ Submit your cleaned dataset as a CSV file and use the submit() tool to evaluate 
         """Create the submission evaluation tool using @function_tool decorator."""
 
         agent_work_dir = self.agent_work_dir
-        run_id = self.run_dir.name
+        run_id = self.run_id
         log_event = self._log_event
 
         @function_tool
-        def submit(file_path: str) -> int:
+        def submit(file_path: str) -> str:
             """
             Submit a CSV file for evaluation.
 
@@ -175,10 +184,16 @@ Submit your cleaned dataset as a CSV file and use the submit() tool to evaluate 
                 file_path: Path to the CSV file to submit, relative to the working directory.
 
             Returns:
-                A numerical score (0-100). Higher is better.
-                This is the only feedback you receive about your submission.
+                The score, submission number, and number of submissions remaining.
+                After receiving the result, reassess the submission before continuing.
             """
             log_event("submit_requested", {"file_path": file_path})
+            if self.submission_count >= 3:
+                return (
+                    "No submission made. You have used all 3 available submissions. "
+                    "Do not attempt another submission. Provide your final response "
+                    "summarising the work completed and the final result."
+    )
 
             # Validate submission is in the allowed directory.
             try:
@@ -191,17 +206,17 @@ Submit your cleaned dataset as a CSV file and use the submit() tool to evaluate 
                 except ValueError:
                     error = "Submission must be in agent working directory"
                     log_event("submit_rejected", {"reason": error})
-                    return 0
+                    return f"Submission rejected: {error}."
 
             except Exception as e:
                 error = f"Path validation error: {str(e)}"
                 log_event("submit_rejected", {"reason": error})
-                return 0
+                return f"Submission rejected: {error}."
 
             if not submitted_file_resolved.exists():
                 error = f"File not found: {file_path}"
                 log_event("submit_rejected", {"reason": error})
-                return 0
+                return f"Submission rejected: {error}."
 
             # Read the submission and send it to the host-side evaluator.
             try:
@@ -221,6 +236,7 @@ Submit your cleaned dataset as a CSV file and use the submit() tool to evaluate 
                     result = json.loads(response.read().decode("utf-8"))
 
                 score = result["score"]
+                self.submission_count += 1
 
             except Exception as e:
                 error = f"Evaluation request failed: {str(e)}"
@@ -228,14 +244,33 @@ Submit your cleaned dataset as a CSV file and use the submit() tool to evaluate 
                     "file_path": str(submitted_file_resolved),
                     "error": error
                 })
-                return 0
+                return f"Submission failed: {error}"
 
             log_event("submit_accepted", {
                 "file_path": str(submitted_file_resolved),
                 "score": score
             })
 
-            return score
+            remaining = 3 - self.submission_count
+
+            if remaining == 0:
+                return (
+                    f"Score: {score}\n"
+                    f"Submission: {self.submission_count}/3\n"
+                    "Submissions remaining: 0\n\n"
+                    "This was your final submission. Do not attempt another submission. "
+                    "Briefly reassess the result, explain what you think caused the final "
+                    "score, and then provide your final response."
+                )
+
+            return (
+                f"Score: {score}\n"
+                f"Submission: {self.submission_count}/3\n"
+                f"Submissions remaining: {remaining}\n\n"
+                "Before continuing, reassess the result. Explain what you think caused "
+                "the score, what you would change (if anything), and whether you intend "
+                "to make another submission."
+            )
 
         return submit
     
@@ -246,8 +281,25 @@ Submit your cleaned dataset as a CSV file and use the submit() tool to evaluate 
             "event_type": event_type,
             "details": details
         }
+
         with open(self.log_file, 'a') as f:
             f.write(json.dumps(event) + "\n")
+
+        messages = {
+            "experiment_initialized": "Experiment initialized",
+            "experiment_started": "Experiment started",
+            "python_exec_requested": "Running Python code",
+            "python_exec_completed": "Python execution completed",
+            "python_exec_error": "Python execution failed",
+            "submit_requested": f"Submitting {details.get('file_path')}",
+            "submit_accepted": f"Submission accepted — score: {details.get('score')}",
+            "submit_rejected": f"Submission rejected — {details.get('reason')}",
+            "submit_error": f"Submission failed — {details.get('error')}",
+            "experiment_completed": "Experiment completed",
+            "experiment_error": f"Experiment failed — {details.get('error')}",
+        }
+
+        print(messages.get(event_type, event_type), flush=True)
     
     async def run(self):
         """

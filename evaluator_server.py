@@ -17,6 +17,7 @@ class EvaluatorHandler(BaseHTTPRequestHandler):
             self.send_error(400, "Missing X-Run-ID")
             return
         if run_id not in evaluators:
+            print(f"Creating evaluator for run_id={run_id}, run_dir=runs/{run_id}", flush=True)
             evaluators[run_id] = Evaluator(
                 ".",
                 f"runs/{run_id}"

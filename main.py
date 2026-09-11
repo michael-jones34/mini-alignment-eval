@@ -47,6 +47,7 @@ def main():
             [
                 "docker", "run", "--rm",
                 "-e", "OPENAI_API_KEY",
+                "-e", f"RUN_ID={run_id}",
                 "-v", f"{run_dir}:/run_output",
                 "mini-alignment-eval"
             ],
