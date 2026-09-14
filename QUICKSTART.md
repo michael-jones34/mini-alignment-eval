@@ -3,59 +3,62 @@
 ## Setup (First Time Only)
 
 ### Windows PowerShell
+
 ```powershell
 cd "Alignment Eval"
+
 .\setup.ps1
 ```
 
 This will:
-1. Create a Python virtual environment (.venv)
-2. Install all dependencies (openai, pandas, pytest)
+
+1. Create a Python virtual environment (`.venv`)
+2. Install the required dependencies
 3. Display activation instructions
 
 ### Linux/Mac
+
 ```bash
-cd Alignment\ Eval
+cd "Alignment Eval"
+
 bash setup.sh
 ```
 
 ## Running the Experiment
 
-### Activate Virtual Environment
+### Activate the Virtual Environment
 
 **Windows PowerShell:**
+
 ```powershell
 cd "Alignment Eval"
+
 .\.venv\Scripts\Activate.ps1
 ```
 
 You should see `(.venv)` appear in your prompt.
 
 **Linux/Mac:**
+
 ```bash
-cd Alignment\ Eval
+cd "Alignment Eval"
+
 source .venv/bin/activate
 ```
 
 ### Set Your OpenAI API Key
 
 **Windows PowerShell:**
+
 ```powershell
 $env:OPENAI_API_KEY="sk-..."
 ```
 
 **Linux/Mac:**
+
 ```bash
 export OPENAI_API_KEY="sk-..."
 ```
-
-### Verify Setup
-
-```bash
-python validate.py
-```
-
-Should show: ✓ All validation checks passed!
 
 ### Run the Experiment
 
@@ -63,80 +66,114 @@ Should show: ✓ All validation checks passed!
 python main.py
 ```
 
-The agent will:
-1. Inspect the corrupted dataset
-2. Clean the data using Python
-3. Submit the cleaned dataset (up to 3 times)
-4. Receive a numerical score after each submission
+The experiment will:
 
-Results will be saved to: `runs/run_[timestamp]/experiment_log.jsonl`
+1. Start the host-side evaluator server
+2. Build and run the agent inside a Docker container
+3. Give the agent access to the corrupted dataset and its tools
+4. Allow up to three submissions
+5. Return a numerical score after each successful submission
+6. Save logs and outputs to the local `runs/` directory
+
+Each run creates its own directory:
+
+```text
+runs/run_<run_id>/
+```
+
+Run artefacts are local and are gitignored; they are not committed to the repository.
 
 ## Testing
 
-### Run All Tests
+Run the grader tests with:
+
 ```bash
 python -m pytest tests/test_grader.py -v
 ```
 
-### Run Specific Test
-```bash
-python -m pytest tests/test_grader.py::TestGrader::test_perfect_submission -v
-```
+These tests cover the local grading and submission-tracking components. They do not replace running the full agent experiment.
 
 ## Project Structure
 
-```
+```text
 Alignment Eval/
-├── .venv/                 # Virtual environment (created by setup.ps1/sh)
 ├── data/
-│   ├── corrupted.csv      # Input: corrupted tensile-test data
-│   └── ground_truth.csv   # Researcher-only: expected cleaned data
+│   ├── corrupted.csv          # Input: corrupted tensile-test data
+│   └── ground_truth.csv       # Researcher-only reference data
 ├── agent/
-│   ├── agent.py           # OpenAI Agent implementation
+│   ├── agent.py               # Agent implementation
 │   └── __init__.py
 ├── grader/
-│   ├── grader.py          # Scoring logic
-│   ├── submission_tracker.py  # 3-submission limit enforcement
+│   ├── grader.py              # Scoring logic
+│   ├── submission_tracker.py  # Submission-limit enforcement
 │   └── __init__.py
 ├── tests/
-│   └── test_grader.py     # Comprehensive test suite
-├── runs/                  # Experiment logs and outputs
-├── main.py                # Entry point
-├── validate.py            # Validation script
-├── requirements.txt       # Dependencies
-├── setup.ps1              # Windows setup script
-├── setup.sh               # Linux/Mac setup script
-├── .gitignore             # Git ignore patterns
-└── README.md              # Full documentation
+│   └── test_grader.py         # Grader tests
+├── runs/                      # Local experiment logs and outputs (gitignored)
+├── main.py                    # Experiment entry point
+├── evaluator_server.py        # Host-side evaluator server
+├── container_entrypoint.py    # Container entry point
+├── Dockerfile                 # Agent container definition
+├── validate.py                # Setup/validation checks
+├── requirements.txt           # Python dependencies
+├── setup.ps1                  # Windows setup script
+├── setup.sh                   # Linux/Mac setup script
+├── .gitignore                 # Git ignore patterns
+├── README.md                  # Full project documentation
+└── quickstart.md              # This guide
 ```
 
 ## Troubleshooting
 
-### "OPENAI_API_KEY not set"
-Make sure you've set the environment variable before running:
+### `OPENAI_API_KEY` not set
+
+Set the environment variable before running the experiment.
+
+**Windows PowerShell:**
+
 ```powershell
 $env:OPENAI_API_KEY="sk-..."
+
+python main.py
+```
+
+**Linux/Mac:**
+
+```bash
+export OPENAI_API_KEY="sk-..."
+
+python main.py
+```
+
+### Docker is not running
+
+The experiment runs the agent inside Docker. Make sure Docker Desktop (Windows/Mac) or Docker Engine (Linux) is running before executing:
+
+```bash
 python main.py
 ```
 
 ### Virtual environment not activating
-Try running the activation command with full path:
+
+**Windows PowerShell:**
+
 ```powershell
-cd Alignment\ Eval
 & ".\.venv\Scripts\Activate.ps1"
 ```
 
-### Permission denied on setup.sh (Linux/Mac)
+**Linux/Mac:**
+
 ```bash
-chmod +x setup.sh
-bash setup.sh
+source .venv/bin/activate
 ```
 
 ### Tests not found
-Make sure you're in the project directory and the virtual environment is activated:
+
+Make sure you are in the project directory and that the virtual environment is activated:
+
 ```bash
-cd Alignment\ Eval
-source .venv/bin/activate  # or .\.venv\Scripts\Activate.ps1 on Windows
+cd "Alignment Eval"
+
 python -m pytest tests/test_grader.py -v
 ```
 
@@ -144,6 +181,8 @@ python -m pytest tests/test_grader.py -v
 
 - **Experiment entry point:** [main.py](main.py)
 - **Agent implementation:** [agent/agent.py](agent/agent.py)
+- **Container entry point:** [container_entrypoint.py](container_entrypoint.py)
+- **Evaluator server:** [evaluator_server.py](evaluator_server.py)
 - **Grader logic:** [grader/grader.py](grader/grader.py)
 - **Tests:** [tests/test_grader.py](tests/test_grader.py)
 - **Full documentation:** [README.md](README.md)
